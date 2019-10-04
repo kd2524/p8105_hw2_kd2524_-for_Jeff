@@ -1,5 +1,7 @@
 ---
-title: "Untitled"
+title: "p8105_hw2_kd2524_-for_Jeff"
+name: "Katherine Dimitropoulou"
+date: "October 4th, 2019"
 output: github_document
 ---
 
@@ -28,3 +30,203 @@ plot(pressure)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+##Problem 1: Actions are followed by code chunks
+
+*Actions:
+-Read and cleaned the Mr. Trash Wheel sheet (used updated dataset_ Fall 2019)
+-Specified the sheet in the Excel file and omitted non-data entries (rows with notes / figures; columns containing notes) using arguments in read_excel
+-Used reasonable variable names
+-Omitted rows that do not include dumpster-specific data
+-Rounded the number of sports balls to the nearest integer and converted the result to an integer variable (using as.integer).*
+
+* Code Chunk*
+  ```{r}
+library(tidyverse)
+library(readxl)
+mr_trash_wheel_df = 
+  readxl::read_excel("./Data/Trash-Wheel-Collection-Totals-8-6-19.xlsx", sheet = 1,range = "A2:N408") %>%
+  janitor::clean_names() %>%
+  mutate(sports_balls = as.integer(round(sports_balls))) %>%
+  drop_na()
+```
+
+*Actions
+-Read and cleaned precipitation data for 2017
+-Read and cleaned precipitation data for 2018
+-Merge the two precipitation datasets*
+
+*Code Chunk*
+```{r}
+precipitation_2017 = 
+  readxl::read_excel("./Data/Trash-Wheel-Collection-Totals-8-6-19.xlsx", sheet =6, range = "A2:B14") %>%
+  janitor::clean_names() %>%
+  mutate(year = 2017) %>%
+  drop_na()
+
+precipitation_2018 = 
+  readxl::read_excel("./Data/Trash-Wheel-Collection-Totals-8-6-19.xlsx", sheet =5, range = "A2:B14") %>%
+  janitor::clean_names() %>%
+  mutate(year = 2018) %>%
+  drop_na()
+
+precipitation_2017_2018 = 
+  bind_rows(precipitation_2017, precipitation_2018) %>%
+  mutate("month" = month.name[as.integer(month)])
+
+sum_2018 = filter(precipitation_2017_2018, year == 2018)
+median_2017 = filter(mr_trash_wheel_df, year == 2017)
+```
+*Summary*
+The Mr Trash Wheel data has `r nrow(mr_trash_wheel_df)` observations. The Precipitation data from years 2017 and 2018 has `r nrow(precipitation_2017_2018)` observations. The key variables for the Mr. Trash Wheel sheet are: weight (tons), volume (cubic yards), plastic bottles (number of), polysterene (number of),cigarette butts (number of), and grocery bags(number of),chip bags (number of) sports balls (number of), homes powered (number of). The key variables for each of the precipitation sheets include the total amount of precipitation (inches) per month, for the specific year (i.e., 2017, 2018 etc.). For the combined datasheet persipitation_2017-2018 we can compute the  mean of total percipitation in inches which is: `r mean(pull(precipitation_2017_2018, total))` inches. From the available data the total precipitation in 2018 is: `r sum(pull(sum_2018, total))` inches.The median number of sports balls per dumpster in 2017 was `r median(pull(median_2017, sports_balls))` balls. 
+
+## Problem 2: Actions are followed by code chunks
+
+*Action: Cleaned the data in pols-month.csv.*
+
+*Code Chunk*
+```{r, message=FALSE}
+pols_month = read_csv(file = "./Data/pols-month.csv") %>%
+  janitor::clean_names() %>%
+  separate(col = mon, into = c("year", "month", "day"), sep = "-") %>%
+  mutate(month = month.name[as.numeric(month)]) %>% 
+  mutate(president = if_else(prez_gop == 1, "gop", "dem")) %>% 
+  select(-prez_gop, -prez_dem, -day)
+```
+
+*Action:Cleaned the data in snap-csv.*
+
+*Code Chunk*
+```{r, message=FALSE}
+snp_month = read_csv(file = "./Data/snp.csv") %>% 
+  janitor::clean_names() %>%
+  separate(col = date, into = c("month", "day", "year"), sep = "/") %>% 
+  select("year", "month", "day", "close") %>% 
+  mutate(month = month.name[as.numeric(month)]) %>% 
+  select(-day) %>% 
+  rename(snp_close = close)
+```
+
+*Action:Cleaned the data from unemployment.csv,  and Switching “wide” to “long” format; ensuring that key variables have the same name; and ensuring that key variables take the same values.*
+
+*Code Chunk*
+```{r, message=FALSE}
+library(tidyverse)
+unemployment_month = read_csv(file = "./Data/unemployment.csv") %>% 
+  janitor::clean_names() %>% 
+  mutate(year = as.character(year))%>%
+pivot_longer(jan:dec, names_to = "month", values_to = "percent_unempl") %>% 
+  mutate(month = case_when(
+    month == "jan" ~ "January",
+    month == "feb" ~ "February",
+    month == "mar" ~ "March",
+    month == "apr" ~ "April",
+    month == "may" ~ "May",
+    month == "jun" ~ "June",
+    month == "jul" ~ "July",
+    month == "aug" ~ "August",
+    month == "sep" ~ "September",
+    month == "oct" ~ "October",
+    month == "nov" ~ "November",
+    month == "dec" ~ "December"
+  ))
+```
+
+*Action: Merge the snp and pols datasets into snp_pols and then merge this with unemployment dataset into one final file named:snp_pols_unemployment.
+
+*Code Chunk*
+```{r}
+snp_pols = 
+  left_join(snp_month, pols_month, by = c("year", "month"))
+snp_pols_unemployment = 
+  left_join(snp_pols, unemployment_month, by = c("year", "month"))
+```
+*Summary*
+*The final comprehensive datafile snp_pols_unemployment, was created by merging the tidied datasets of pols_month, snp_month, and unemployment_month by dates. The dataset pols_month included the counts (by month and year) for the national politicians of each party from January 1947 to June 2015. It included information about the  president being a  GOP representative or DEM representative. The snp dataset included the closing values of the S&P stock market index(arranges by date) from January 1950 to July 2015. The snp data is missing between 1947-1949 (otherwise complete). The unemployment dataset contained the % unemployment (by  month and year) from January 1948 to December 2015. The unemployment data is missing for 1947 (otherwise complete) The Final merged file included 822 observations and 11 variables. *
+
+
+## Problem 3:Actions are followed by code chunks
+
+*Action: Read and cleaned the Popular Baby Names dataset*
+
+*Code chunk*
+```{r message=FALSE}
+library(tidyverse)
+popular_baby_names = read.csv(file = "./Data/Popular_Baby_Names.csv") %>% 
+  janitor::clean_names() %>% 
+  rename(name = child_s_first_name) %>% 
+  rename(year = year_of_birth) %>% 
+  mutate(name = tolower(name)) %>% 
+  mutate(gender = tolower(gender)) %>% 
+  mutate(ethnicity = tolower(ethnicity)) %>% 
+  mutate(ethnicity = case_when(
+    ethnicity == "asian and pacific islander" ~ "Asian and Pacific Islander",
+    ethnicity == "asian and paci" ~ "Asian and Pacific Islander",
+    ethnicity == "black non hispanic" ~ "Black Non-Hispanic",
+    ethnicity == "black non hisp" ~ "Black Non-Hispanic",
+    ethnicity == "white non hispanic" ~ "White Non-Hispanic",
+    ethnicity == "white non hisp" ~ "White Non-Hispanic",
+    ethnicity == "hispanic" ~ "Hispanic"
+  )) %>% 
+  distinct()
+```
+
+*Action: Created a table demonstrating the rank of popularity of the name "Olivia" over time*
+
+*Code chunk*
+```{r message=FALSE}
+olivia_name = popular_baby_names %>% 
+  select(year, ethnicity, name, rank) %>% 
+  filter(name == "olivia")
+```
+* Action: For the rank popularity of the "Olivia" name over time I have developed a reader friendly table that provides rows for ethnicities and columns for year.*
+
+*Code Chunk*
+```{r message=FALSE}
+olivia_rank =
+  pivot_wider(olivia_name,
+    names_from = "year",
+    values_from = "rank") %>% 
+  select(-name) %>% 
+  select ("ethnicity", "2011", "2012", "2013", "2014", "2015", "2016")
+```
+
+*Action: Produced a similar table showing the most popular name among male children over time*
+*Code Chunk*
+```{r message=FALSE}
+boy_names = popular_baby_names %>% 
+  select(year, name, gender, ethnicity, rank) %>% 
+  filter(gender == "male")
+```
+*Action: Transformed the above table to become more visually friendly and reflect the ranking by year (in columns)*
+
+*code Chunk*
+```{r message=FALSE}
+boy_names_rank =
+  pivot_wider(
+    boy_names,
+    names_from = "year",
+    values_from = "rank"
+  ) %>% 
+  select(-gender) %>% 
+  select ("name", "ethnicity", "2011", "2012", "2013", "2014", "2015", "2016")
+```
+
+*Action: For male, white non-hispanic children born in 2016, produced a scatter plot showing the number of children with a name (y axis) against the rank in popularity of that name (x axis).*
+*Code Chunk*
+```{r message=FALSE}
+boy_wnh_2016 = popular_baby_names %>% 
+  filter(
+    year == "2016",
+    gender == "male",
+    ethnicity == "White Non-Hispanic"
+         ) %>% 
+  select(-year, -gender, -ethnicity)
+ggplot(boy_wnh_2016, aes(x = rank, y = count)) + 
+  geom_point() +
+labs(
+    title = "Rankings of Baby Names with Corresponding Counts",
+    x = "Overall Rank (out of 100)",
+    y = "Count (babies)"
+  )
+```
